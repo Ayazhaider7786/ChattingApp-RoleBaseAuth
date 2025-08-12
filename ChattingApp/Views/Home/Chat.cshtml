@@ -1,0 +1,73 @@
+﻿<h2>Start a Private Chat</h2>
+
+<select id="userSelect">
+    <option value="">-- Select User --</option>
+    @foreach (var user in ViewBag.Users)
+    {
+        <option value="@user.Id">@user.UserName</option>
+    }
+</select>
+
+<div id="chatWindow" style="display:none; margin-top:20px;">
+    <h3>Chat with <span id="chatWithUser"></span></h3>
+
+    <ul id="messagesList"></ul>
+    <input type="hidden" id="currentUserId" value="@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier).Value" />
+
+    <input type="text" id="messageInput" placeholder="Type your message..." />
+    <button onclick="sendMessage()">Send</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+
+<script>
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/chatHub")
+        .build();
+
+    let selectedUserId = null;
+
+    const fromUserId = document.getElementById("currentUserId").value;
+
+    // ✅ Receive private message event
+    connection.on("ReceivePrivateMessage", (fromUserId, message) => {
+        const li = document.createElement("li");
+        li.textContent = `${fromUserId}: ${message}`;
+        document.getElementById("messagesList").appendChild(li);
+    });
+
+    connection.start().catch(err => console.error(err.toString()));
+
+    document.getElementById("userSelect").addEventListener("change", function () {
+        selectedUserId = this.value;
+        if (selectedUserId) {
+            const userName = this.options[this.selectedIndex].text;
+            document.getElementById("chatWithUser").textContent = userName;
+            document.getElementById("chatWindow").style.display = "block";
+            document.getElementById("messagesList").innerHTML = ""; // Clear old messages
+        } else {
+            document.getElementById("chatWindow").style.display = "none";
+        }
+    });
+
+    function sendMessage() {
+        if (!selectedUserId) {
+            alert("Please select a user to chat with.");
+            return;
+        }
+        const message = document.getElementById("messageInput").value;
+        if (message.trim() === "") return;
+
+        // ✅ Send message to server-side Hub
+        connection.invoke("SendPrivateMessage", fromUserId, selectedUserId, message)
+            .catch(err => console.error(err.toString()));
+
+        const li = document.createElement("li");
+        li.textContent = `You: ${message}`;
+        document.getElementById("messagesList").appendChild(li);
+
+        document.getElementById("messageInput").value = "";
+    }
+</script>
+
+
+</script>
